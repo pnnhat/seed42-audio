@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.ipynb_checkpoints/
+data/*
+!data/.gitkeep
+*.wav
+*.mp3
+*.flac
+.DS_Store
+.vscode/
