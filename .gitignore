@@ -11,3 +11,5 @@ data/*
 *.flac
 .DS_Store
 .vscode/
+*.egg-info/
+scratch/
