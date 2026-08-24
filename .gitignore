@@ -4,10 +4,15 @@ __pycache__/
 venv/
 env/
 .ipynb_checkpoints/
-data/*
-!data/.gitkeep
+*.egg-info/
+
+# Audio: ignore everywhere, but allow one shared test file in data/
 *.wav
 *.mp3
 *.flac
+data/*
+!data/.gitkeep
+!data/test.wav
+
 .DS_Store
 .vscode/
