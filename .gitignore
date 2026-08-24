@@ -14,6 +14,10 @@ data/*
 !data/.gitkeep
 !data/test.wav
 
+# Pretrained model weights: large binaries, download per-machine instead
+# of committing (see mood/classify.py's docstring for the curl commands).
+models/
+
 .DS_Store
 .vscode/
 

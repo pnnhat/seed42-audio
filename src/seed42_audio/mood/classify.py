@@ -1,23 +1,103 @@
 """Genre / mood / valence-arousal classification.
 
-Phase 1 fallback: estimate valence and arousal directly from this segment's
-own brightness, energy and mode. The shared extract(samples, sr) -> dict
-signature does not receive the other feature modules' outputs (every
-extractor only ever sees raw samples and sr, never another module's
-result), so this module computes its own lightweight versions of those
-three signals instead of depending on spectral.py or chroma.py being
-finished. That keeps a valence/arousal reading always available, even if
-those files are still stubs, which is what the 30 August demo needs.
+Primary path: Essentia's pretrained DEAM model, MusiCNN embeddings feeding
+a valence/arousal regression head trained on continuous human annotations
+of music (Soleymani et al., DEAM dataset). Falls back automatically, on
+any failure, essentia not installed, model files missing, a segment the
+model cannot process, to the self-contained heuristic that estimates
+valence and arousal from this segment's own brightness, energy and mode.
+The heuristic was built first for the 30 August demo and is kept
+permanently as a safety net rather than removed, so a classification
+always exists even on a machine where essentia is not fully working.
 
-Upgrade path: swap the body of extract() for Essentia's pretrained mood
-and valence/arousal models once that dependency is confirmed working
-(essentia-tensorflow on Windows, plain essentia on Mac, Linux or WSL).
-Keep this function's signature and output keys unchanged so the swap is a
-drop-in for the rest of the pipeline.
+Model files (not committed, large binaries, see .gitignore). Download
+once per machine before the essentia path will actually run:
+  mkdir -p models
+  curl -L -o models/msd-musicnn-1.pb \
+      https://essentia.upf.edu/models/feature-extractors/musicnn/msd-musicnn-1.pb
+  curl -L -o models/deam-msd-musicnn-2.pb \
+      https://essentia.upf.edu/models/classification-heads/deam/deam-msd-musicnn-2.pb
+Without them, extract() silently uses the fallback for every segment.
 """
+
+from pathlib import Path
 
 import numpy as np
 import librosa
+
+# --- Essentia primary path --------------------------------------------------
+
+_MODELS_DIR = Path(__file__).resolve().parents[3] / "models"
+_MUSICNN_MODEL = _MODELS_DIR / "msd-musicnn-1.pb"
+_DEAM_MODEL = _MODELS_DIR / "deam-msd-musicnn-2.pb"
+_ESSENTIA_SR = 16000  # fixed by the pretrained models, not tunable
+
+try:
+    from essentia.standard import TensorflowPredict2D, TensorflowPredictMusiCNN
+
+    _ESSENTIA_IMPORTED = True
+except ImportError:
+    _ESSENTIA_IMPORTED = False
+
+_embedding_model = None
+_deam_model = None
+
+
+def _load_essentia_models():
+    """Load both TensorFlow graphs once and cache them for later calls.
+    Raises if the model files are not present, extract() catches this the
+    same as any other essentia failure and falls back.
+    """
+    global _embedding_model, _deam_model
+    if _embedding_model is None:
+        _embedding_model = TensorflowPredictMusiCNN(
+            graphFilename=str(_MUSICNN_MODEL), output="model/dense/BiasAdd"
+        )
+    if _deam_model is None:
+        _deam_model = TensorflowPredict2D(
+            graphFilename=str(_DEAM_MODEL), output="model/Identity"
+        )
+    return _embedding_model, _deam_model
+
+
+def _essentia_extract(samples, sr):
+    """Valence and arousal from Essentia's pretrained DEAM model.
+
+    Raises on any failure. extract() is the only caller and always wraps
+    this in a try/except, falling back to _fallback_extract().
+    """
+    if not _ESSENTIA_IMPORTED:
+        raise RuntimeError("essentia is not installed")
+
+    embedding_model, deam_model = _load_essentia_models()
+
+    # The models were trained on 16 kHz mono audio, resample this segment
+    # to match rather than reading anything from disk again.
+    audio_16k = librosa.resample(samples, orig_sr=sr, target_sr=_ESSENTIA_SR)
+    audio_16k = audio_16k.astype(np.float32)
+
+    embeddings = embedding_model(audio_16k)
+    predictions = np.asarray(deam_model(embeddings))
+
+    # DEAM predicts valence and arousal on a 1 to 9 scale. A segment longer
+    # than the model's internal patch size comes back as one row per
+    # patch, average them into a single reading for the segment.
+    if predictions.ndim > 1:
+        predictions = predictions.mean(axis=0)
+    valence_raw, arousal_raw = predictions
+
+    # Rescale 1..9 to -1..1 so the output matches the fallback's
+    # convention regardless of which path produced it.
+    valence = (valence_raw - 5.0) / 4.0
+    arousal = (arousal_raw - 5.0) / 4.0
+
+    return {
+        "valence": round(max(-1.0, min(1.0, float(valence))), 3),
+        "arousal": round(max(-1.0, min(1.0, float(arousal))), 3),
+    }
+
+
+# --- Fallback path (Phase 1, kept permanently as a safety net) -------------
 
 # Rough spectral centroid range, in Hz, covering dark or muffled timbre up
 # to bright or harsh timbre. Only used to squash brightness into 0 to 1
@@ -67,8 +147,9 @@ def _estimate_mode(samples, sr):
     return 1.0 if major_score >= minor_score else 0.0
 
 
-def extract(samples, sr):
-    """Fallback valence and arousal for one segment.
+def _fallback_extract(samples, sr):
+    """Fallback valence and arousal for one segment, from this segment's
+    own brightness, energy and mode.
 
     Returns valence and arousal in [-1, 1], Russell's circumplex
     convention: negative valence is darker or sadder, negative arousal is
@@ -76,9 +157,6 @@ def extract(samples, sr):
     brightness giving arousal a smaller push too (a bright, loud segment
     reads as more energetic than a bright, quiet one).
     """
-    if samples.size < int(sr * _MIN_SAMPLES_SECONDS):
-        return {}
-
     rms = float(np.sqrt(np.mean(samples**2)))
     energy = _normalise(rms, _ENERGY_LOW, _ENERGY_HIGH)
 
@@ -94,3 +172,21 @@ def extract(samples, sr):
         "valence": round(max(-1.0, min(1.0, valence)), 3),
         "arousal": round(max(-1.0, min(1.0, arousal)), 3),
     }
+
+
+# --- Public entry point ------------------------------------------------------
+
+
+def extract(samples, sr):
+    """Valence and arousal for one segment, essentia's pretrained DEAM
+    model when it is available and working, the brightness/energy/mode
+    heuristic otherwise.
+    """
+    if samples.size < int(sr * _MIN_SAMPLES_SECONDS):
+        return {}
+
+    try:
+        return _essentia_extract(samples, sr)
+    except Exception as error:
+        print(f"[mood.classify] essentia path failed, using fallback: {error}")
+        return _fallback_extract(samples, sr)

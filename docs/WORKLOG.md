@@ -10,3 +10,4 @@ One row per piece of work. Add your own rows, newest at the top. Keep entries to
 | 2026-08-24 | 13:30 | Jayden | Defined MusicState dataclass, the shared per-window state the features fill and the output reads | src/seed42_audio/state/music_state.py |
 | 2026-08-24 | 13:45 | Jayden | Finished causal streaming loop, handling clips shorter than the window | src/seed42_audio/io/stream.py |
 | 2026-08-24 | 20:00 | Philo | Mood classification fallback: valence and arousal from brightness, energy and mode, computed self-contained in extract(samples, sr) since it does not receive other modules' state | src/seed42_audio/mood/classify.py |
+| 2026-08-24 | 21:30 | Philo | Wired essentia's pretrained DEAM model (MusiCNN embeddings, valence/arousal regression head) as the primary path, brightness/energy/mode heuristic kept as an automatic fallback on any essentia failure. Added essentia-tensorflow to requirements.txt and gitignored models/ | src/seed42_audio/mood/classify.py |

@@ -2,5 +2,5 @@ librosa
 numpy
 scipy
 soundfile
-essentia
+essentia-tensorflow
 pyyaml
