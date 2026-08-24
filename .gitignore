@@ -6,7 +6,7 @@ env/
 .ipynb_checkpoints/
 *.egg-info/
 
-# Audio: ignore everywhere, but allow one shared test file in data/
+# Audio:ignore everywhere, but allow one shared test file in data/
 *.wav
 *.mp3
 *.flac
@@ -16,5 +16,6 @@ data/*
 
 .DS_Store
 .vscode/
+
 *.egg-info/
 scratch/
