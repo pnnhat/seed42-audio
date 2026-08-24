@@ -23,7 +23,8 @@ def extract(samples, sr) -> dict:
 
     return {
         "brightness": brightness,
-        "loudness": loudness,
+        "energy": loudness, #changed from loudness to energy to match
+                            # MusicState field name (HATIM)
         "flatness": flatness,
         "bass_energy": bass_energy,
     }
