@@ -17,6 +17,6 @@ One row per piece of work. Add your own rows, newest at the top. Keep entries to
 | 2026-08-25 | 18:20 | Danial | Found run_pipeline.py hardcodes a Windows path on line 5 and calls run() a second time outside the main guard at emit_every=10.0 instead of 60.0, and run_stream.py loads data/test.mp3 which is not in the repo, so both fail on a fresh pull | scripts/run_pipeline.py |
 | 2026-08-25 | 18:10 | Danial | Verified causal streaming loop on Mac against test.wav after pull, 132300 samples per 6s window through to end of clip | scripts/run_stream.py |
 | 2026-08-22 | 14:30 | Danial | Set up local environment (Anaconda base, Python 3.13), installed dependencies and package, ran stream test on Mac | scripts/run_stream.py |
-
+| 2026-08-25 | 19:45 | Danial | Wrote Control API summary for the team: request shape, hot-swap versus reload fields, label to field mapping, and three open questions for the sponsor | docs/seed42_api.md |
 
  
