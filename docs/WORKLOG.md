@@ -18,5 +18,6 @@ One row per piece of work. Add your own rows, newest at the top. Keep entries to
 | 2026-08-25 | 18:10 | Danial | Verified causal streaming loop on Mac against test.wav after pull, 132300 samples per 6s window through to end of clip | scripts/run_stream.py |
 | 2026-08-22 | 14:30 | Danial | Set up local environment (Anaconda base, Python 3.13), installed dependencies and package, ran stream test on Mac | scripts/run_stream.py |
 | 2026-08-25 | 19:45 | Danial | Wrote Control API summary for the team: request shape, hot-swap versus reload fields, label to field mapping, and three open questions for the sponsor | docs/seed42_api.md |
+| 2026-08-27 | 17:00 | Danial | Started writer.py: builds the POST /api/prompts body with stream_id outside body, and raises ReloadFieldError on any field that is not hot-swappable | src/seed42_audio/output/writer.py |
 
  
