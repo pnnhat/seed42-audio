@@ -23,3 +23,6 @@ models/
 
 *.egg-info/
 scratch/
+
+# Credentials, never commit
+.env
