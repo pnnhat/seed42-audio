@@ -4,3 +4,4 @@ scipy
 soundfile
 essentia-tensorflow
 pyyaml
+requests
