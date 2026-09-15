@@ -20,4 +20,6 @@ One row per piece of work. Add your own rows, newest at the top. Keep entries to
 | 2026-08-25 | 19:45 | Danial | Wrote Control API summary for the team: request shape, hot-swap versus reload fields, label to field mapping, and three open questions for the sponsor | docs/seed42_api.md |
 | 2026-08-27 | 17:00 | Danial | Started writer.py: builds the POST /api/prompts body with stream_id outside body, and raises ReloadFieldError on any field that is not hot-swappable | src/seed42_audio/output/writer.py |
 | 2026-09-14 | 12:36 | Philo | D3 Stage 1: rule-based prompt dictionary in stages/stage1.py, generate(state) keyed on mood quadrant (valence/arousal), mode and energy band, tested against full, missing and unknown-mode states | src/seed42_audio/stages/stage1.py |
+| 2026-09-15 | 01:35 | Danial | Built the Control API client against the mock: login from env vars, create stream, PATCH params, delete. Cold-field check refuses anything that would reload the pipeline | src/seed42_audio/output/writer.py |
+| 2026-09-15 | 02:10 | Danial | Committed the sponsor's mock Control API server so the whole team can run a local session | scripts/mock-control-api.py |
 
