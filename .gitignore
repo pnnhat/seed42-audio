@@ -26,3 +26,5 @@ scratch/
 
 # Credentials, never commit
 .env
+
+tests/logs/
