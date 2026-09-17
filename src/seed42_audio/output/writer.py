@@ -29,16 +29,20 @@ BASE_URL = MOCK_URL  # the one line that changes when we go live
 # reloads the pipeline for about 30 seconds and the performance stops. The real
 # API answers 200 and reloads anyway, so this is the only place it can be
 # caught. Mirrors the hot field table in docs/seed42_api.md.
-HOT_FIELDS = frozenset({
-    "prompt",
-    "negative_prompt",
-    "seed",
-    "t_index_list",
-    "guidance_scale",
-    "delta",
-    "num_inference_steps",
-    "controlnets",
-})
+HOT_FIELDS = frozenset(
+    {
+        "prompt",
+        "negative_prompt",
+        "seed",
+        "t_index_list",
+        "guidance_scale",
+        "delta",
+        "num_inference_steps",
+        "controlnets",
+    }
+)
+
+ALLOWED_CONTROLNET_FIELDS = frozenset({"conditioning_scale"})
 
 _token = None  # set by login(), read by every call after it
 
@@ -109,18 +113,18 @@ def delete_stream(stream_id):
 
 
 def _check_hot(params):
-    """Raise if params carries a cold field.
-
-    Belongs with next week's request discipline, but it is here now because the
-    failure is invisible: the API answers 200 and reloads anyway, so nothing
-    downstream would notice until the projector went dark.
-    """
     cold = set(params) - HOT_FIELDS
     if cold:
-        raise ColdFieldError(
-            "these fields would reload the pipeline and stop the show: "
-            + ", ".join(sorted(cold))
-        )
+        raise ColdFieldError("cold field(s) in PATCH: %s" % ", ".join(sorted(cold)))
+    for i, cn in enumerate(params.get("controlnets") or []):
+        if not isinstance(cn, dict):
+            continue
+        cold_sub = set(cn) - ALLOWED_CONTROLNET_FIELDS
+        if cold_sub:
+            raise ColdFieldError(
+                "cold field(s) in controlnets[%d]: %s"
+                % (i, ", ".join(sorted(cold_sub)))
+            )
 
 
 def send(stream_id, params) -> dict:
