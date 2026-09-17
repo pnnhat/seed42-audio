@@ -1,4 +1,4 @@
-"""The shared per-window state object: one MusicState per emit."""
+# The shared per-window state object: one MusicState per emit.
 
 from dataclasses import dataclass, field, asdict, fields
 import json
