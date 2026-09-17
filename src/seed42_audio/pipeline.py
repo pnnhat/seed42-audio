@@ -1,6 +1,7 @@
 """The every-X-seconds loop: read segments, extract features, emit a classification."""
 
 import importlib
+from seed42_audio import state
 from seed42_audio.io.stream import AudioStream
 from seed42_audio.state.music_state import MusicState
 
@@ -35,7 +36,7 @@ def classify(samples, sr, timestamp, extractors):
     return state
 
 
-def run(paths, sr=22050, window=30.0, hop=1.0, emit_every=60.0):
+def run(paths, sr=22050, window=30.0, hop=1.0, emit_every=60.0, on_emit=None):
     """Play the given files back to back and print one classification every
     `emit_every` seconds, each built from the trailing `window` seconds.
     """
@@ -48,6 +49,9 @@ def run(paths, sr=22050, window=30.0, hop=1.0, emit_every=60.0):
         for timestamp, samples in stream.segments():
             last = elapsed + timestamp
             if last >= next_emit:
-                print(classify(samples, sr, last, extractors).to_json())
+                ms = classify(samples, sr, last, extractors)
+                print(ms.to_json())
+                if on_emit is not None:
+                    on_emit(ms)
                 next_emit += emit_every
         elapsed = last
