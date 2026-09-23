@@ -37,7 +37,7 @@ MODES = {
     "not-ready-404": (["--not-ready", "404", "--ready-after", "20"], 1),
     "not-ready-409": (["--not-ready", "409", "--ready-after", "20"], 1),
     "async-create": (["--async-create", "--ready-after", "20"], 1),
-    "unstable": (["--unstable"], 3),
+    "unstable": (["--unstable"], 15),
     "fail-rate": (["--always-ready", "--fail-rate", "0.3"], 1),
 }
 
