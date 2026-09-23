@@ -28,7 +28,7 @@ BASE_URL = MOCK_URL  # the one line that changes when we go live
 # Fields that update the running stream. Anything outside this set is cold: it
 # reloads the pipeline for about 30 seconds and the performance stops. The real
 # API answers 200 and reloads anyway, so this is the only place it can be
-# caught. Mirrors the hot field table in docs/seed42_api.md.
+# caught. Mirrors the hot field list in docs/seam-contract.md.
 HOT_FIELDS = frozenset(
     {
         "prompt",
@@ -113,6 +113,13 @@ def delete_stream(stream_id):
 
 
 def _check_hot(params):
+    """Raise if params carries a cold field, at the top level or inside a
+    controlnets entry.
+
+    This is the last gate before the PATCH, since the real API answers 200 and
+    reloads anyway. Each controlnets entry may carry only conditioning_scale:
+    a model_id or preprocessor inside one reloads the pipeline just the same.
+    """
     cold = set(params) - HOT_FIELDS
     if cold:
         raise ColdFieldError("cold field(s) in PATCH: %s" % ", ".join(sorted(cold)))
