@@ -14,6 +14,7 @@ stream can end on its own, which is indistinguishable from a bug in here.
 Switching to live is one change, BASE_URL.
 """
 
+import json
 import os
 
 import requests
@@ -58,6 +59,27 @@ def _headers():
     return {"Authorization": "Bearer " + _token}
 
 
+def _log_attempt(op, attempt, status, error):
+    """Print one structured line per HTTP attempt so the harness can count them.
+
+    Flushed straight away because stdout is block buffered when it is piped, which
+    is exactly how the harness reads it.
+    """
+    record = {"op": op, "attempt": attempt, "status": status, "error": error}
+    print("[output.writer] " + json.dumps(record), flush=True)
+
+
+def _request(op, method, path, **kwargs):
+    """Make one HTTP call and log it. Every call in this module goes through here."""
+    try:
+        response = requests.request(method, BASE_URL + path, **kwargs)
+    except requests.RequestException as error:
+        _log_attempt(op, 1, None, type(error).__name__)
+        raise
+    _log_attempt(op, 1, response.status_code, None)
+    return response
+
+
 # --- Session ----------------------------------------------------------------
 
 
@@ -69,8 +91,10 @@ def login() -> str:
     request.
     """
     global _token
-    response = requests.post(
-        BASE_URL + "/api/auth",
+    response = _request(
+        "login",
+        "POST",
+        "/api/auth",
         json={
             "action": "login",
             "email": os.environ["SEED42_EMAIL"],
@@ -89,8 +113,10 @@ def create_stream(params=None) -> str:
     the id, which we pass straight to send(). model_id, width and height
     default server-side if omitted.
     """
-    response = requests.post(
-        BASE_URL + "/api/streams",
+    response = _request(
+        "create",
+        "POST",
+        "/api/streams",
         headers=_headers(),
         json={"params": params or {}},
     )
@@ -102,8 +128,10 @@ def delete_stream(stream_id):
     """End the stream. A failure here is not fatal and is not retried, since
     seed42 closes abandoned sessions server-side.
     """
-    requests.delete(
-        BASE_URL + "/api/streams",
+    _request(
+        "delete",
+        "DELETE",
+        "/api/streams",
         headers=_headers(),
         json={"stream_id": stream_id},
     )
@@ -130,8 +158,10 @@ def _check_hot(params):
 def send(stream_id, params) -> dict:
     """PATCH one params dict onto the running stream."""
     _check_hot(params)
-    response = requests.patch(
-        BASE_URL + "/api/streams",
+    response = _request(
+        "patch",
+        "PATCH",
+        "/api/streams",
         headers=_headers(),
         json={"id": stream_id, "params": params},
     )
