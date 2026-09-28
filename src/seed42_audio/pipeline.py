@@ -27,7 +27,11 @@ def load_extractors():
 
 
 def classify(samples, sr, timestamp, extractors):
-    state = MusicState(timestamp=round(timestamp, 1))
+    state = MusicState(
+	timestamp=round(timestamp, 1),
+    	samples=samples,
+    )
+
     for name, extract in extractors:
         try:
             state.update(extract(samples, sr))

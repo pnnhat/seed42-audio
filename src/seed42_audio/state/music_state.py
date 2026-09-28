@@ -1,12 +1,13 @@
 # The shared per-window state object: one MusicState per emit.
-
-from dataclasses import dataclass, field, asdict, fields
 import json
+from dataclasses import dataclass, field, asdict, fields
+from typing import Optional
 
 
 @dataclass
 class MusicState:
     timestamp: float
+    samples: Optional[object] = None
     tempo: float = 0.0
     energy: float = 0.0
     brightness: float = 0.0
