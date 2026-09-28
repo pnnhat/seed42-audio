@@ -257,6 +257,15 @@ def send(stream_id, params) -> dict:
         )
         if not _not_ready(response):
             break
+    if _not_ready(response):
+        # Stream still starting after every retry. Drop this update instead of
+        # crashing the session; the next cycle tries again, last write wins.
+        print(
+            "[output.writer] stream not ready after %d attempts, update dropped"
+            % MAX_ATTEMPTS,
+            flush=True,
+        )
+        return {}
     if response.status_code == 502:
         raise StreamGoneError("stream %s has ended, a new one is needed" % stream_id)
     response.raise_for_status()

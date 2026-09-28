@@ -37,6 +37,6 @@ class MusicState:
         d = {
             k: v
             for k, v in self.to_dict().items()
-            if k not in ("onset_times", "beat_times")
+            if k not in ("samples", "onset_times", "beat_times")
         }
         return json.dumps(d)

@@ -37,7 +37,7 @@ MODES = {
     "not-ready-404": (["--not-ready", "404", "--ready-after", "20"], 1),
     "not-ready-409": (["--not-ready", "409", "--ready-after", "20"], 1),
     "async-create": (["--async-create", "--ready-after", "20"], 1),
-    "unstable": (["--unstable"], 15),
+    "unstable": (["--unstable"], 20),
     "fail-rate": (["--always-ready", "--fail-rate", "0.3"], 1),
 }
 
@@ -45,7 +45,8 @@ REQUEST = re.compile(r'"(GET|POST|PATCH|DELETE) (\S+) HTTP/1\.1" (\d{3})')
 PATCH_LINE = re.compile(r"patch #(\d+) on (\S+): (.*)")
 
 
-# Running 
+# Running
+
 
 def wait_for_port(port, timeout=10.0):
     deadline = time.monotonic() + timeout
@@ -69,7 +70,9 @@ def run_mode(name):
     with open(mock_log, "w") as mf, open(pipe_log, "w") as pf:
         mock = subprocess.Popen(
             [sys.executable, str(MOCK), "--port", str(PORT), *mock_args],
-            stdout=mf, stderr=subprocess.STDOUT, cwd=ROOT,
+            stdout=mf,
+            stderr=subprocess.STDOUT,
+            cwd=ROOT,
         )
         try:
             if not wait_for_port(PORT):
@@ -81,7 +84,9 @@ def run_mode(name):
             started = time.monotonic()
             pipeline = subprocess.run(
                 [sys.executable, "-c", code],
-                stdout=pf, stderr=subprocess.STDOUT, cwd=ROOT,
+                stdout=pf,
+                stderr=subprocess.STDOUT,
+                cwd=ROOT,
                 env={**os.environ, **CREDENTIALS},
             )
             seconds = time.monotonic() - started
@@ -175,27 +180,39 @@ def check_not_ready(r):
         fails.append("no PATCH ever landed after not-ready")
     emits = max(len(r["pipe"]["emits"]), 1)
     if len(not_ready) > 3 * emits:
-        fails.append("%d not-ready attempts for %d emits, more than 3 per emit"
-                     % (len(not_ready), emits))
+        fails.append(
+            "%d not-ready attempts for %d emits, more than 3 per emit"
+            % (len(not_ready), emits)
+        )
     return fails
 
 
 def check_async_create(r):
-    fails = check_not_ready(r)
+    # After a 202 the client polls GET until ready, so its PATCHes are 200 and
+    # not-ready on PATCH is not expected here, unlike the plain not-ready modes.
+    fails = check_common(r)
+    if r["exit"] != 0:
+        fails.append("exit code %d" % r["exit"])
     if 202 not in codes(r, "POST"):
         fails.append("mock did not answer 202 on create")
     if not codes(r, "GET"):
         fails.append("client never polled GET after the 202")
+    if 200 not in codes(r, "PATCH"):
+        fails.append("no PATCH landed after the stream became ready")
     return fails
 
 
 def check_unstable(r):
     fails = check_common(r)
     if r["exit"] != 0:
-        fails.append("exit code %d, client did not treat the dead stream as gone" % r["exit"])
+        fails.append(
+            "exit code %d, client did not treat the dead stream as gone" % r["exit"]
+        )
     if 502 not in codes(r, "PATCH"):
-        fails.append("stream never died, session was under 45 s (%.0f s), add repeats"
-                     % r["seconds"])
+        fails.append(
+            "stream never died, session was under 45 s (%.0f s), add repeats"
+            % r["seconds"]
+        )
     if not codes(r, "DELETE"):
         fails.append("client never attempted DELETE")
     return fails
@@ -219,7 +236,7 @@ CHECKS = {
 }
 
 
-# Entry 
+# Entry
 
 
 def main(names):
@@ -230,8 +247,10 @@ def main(names):
         fails = CHECKS[name](r)
         results.append((r, fails))
         patch = codes(r, "PATCH")
-        print("  exit %d, %.0f s, %d emits, PATCH codes %s, logs %s"
-              % (r["exit"], r["seconds"], len(r["pipe"]["emits"]), patch, r["logs"][1]))
+        print(
+            "  exit %d, %.0f s, %d emits, PATCH codes %s, logs %s"
+            % (r["exit"], r["seconds"], len(r["pipe"]["emits"]), patch, r["logs"][1])
+        )
     print("\nmode            result")
     for r, fails in results:
         print("%-15s %s" % (r["mode"], "PASS" if not fails else "FAIL"))
