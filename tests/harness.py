@@ -1,14 +1,13 @@
-"""D3 test harness: run the dev orchestrator against the mock Control API in
-each failure mode and check the client behaves as docs/seam-contract.md says.
-
-    python tests/harness.py                # every mode
-    python tests/harness.py always-ready   # one or more named modes
-
-Run with the seed42 conda env active. Both subprocesses use sys.executable.
-Attempt counts are read from the mock's own request log, one line per HTTP
-request with its status code, so they do not depend on client-side logging.
-Logs land in tests/logs/ (gitignored).
-"""
+# D3 test harness: run the dev orchestrator against the mock Control API in
+# each failure mode and check the client behaves as docs/seam-contract.md says.
+#
+#   python tests/harness.py                # every mode
+#   python tests/harness.py always-ready   # one or more named modes
+#
+# Run with the seed42 conda env active. Both subprocesses use sys.executable.
+# Attempt counts are read from the mock's own request log, one line per HTTP
+# request with its status code, so they do not depend on client-side logging.
+# Logs land in tests/logs/ (gitignored).
 
 import os
 import re

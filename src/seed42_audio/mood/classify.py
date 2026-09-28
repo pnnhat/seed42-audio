@@ -1,24 +1,23 @@
-"""Genre / mood / valence-arousal classification.
-
-Primary path: Essentia's pretrained DEAM model, MusiCNN embeddings feeding
-a valence/arousal regression head trained on continuous human annotations
-of music (Soleymani et al., DEAM dataset). Falls back automatically, on
-any failure, essentia not installed, model files missing, a segment the
-model cannot process, to the self-contained heuristic that estimates
-valence and arousal from this segment's own brightness, energy and mode.
-The heuristic was built first for the 30 August demo and is kept
-permanently as a safety net rather than removed, so a classification
-always exists even on a machine where essentia is not fully working.
-
-Model files (not committed, large binaries, see .gitignore). Download
-once per machine before the essentia path will actually run:
-  mkdir -p models
-  curl -L -o models/msd-musicnn-1.pb \
-      https://essentia.upf.edu/models/feature-extractors/musicnn/msd-musicnn-1.pb
-  curl -L -o models/deam-msd-musicnn-2.pb \
-      https://essentia.upf.edu/models/classification-heads/deam/deam-msd-musicnn-2.pb
-Without them, extract() silently uses the fallback for every segment.
-"""
+# Genre / mood / valence-arousal classification.
+#
+# Primary path: Essentia's pretrained DEAM model, MusiCNN embeddings feeding a
+# valence/arousal regression head trained on continuous human annotations of
+# music (Soleymani et al., DEAM dataset). Falls back automatically, on any
+# failure, essentia not installed, model files missing, a segment the model
+# cannot process, to the self-contained heuristic that estimates valence and
+# arousal from this segment's own brightness, energy and mode. The heuristic
+# was built first for the 30 August demo and is kept permanently as a safety
+# net rather than removed, so a classification always exists even on a
+# machine where essentia is not fully working.
+#
+# Model files (not committed, large binaries, see .gitignore). Download once
+# per machine before the essentia path will actually run:
+#   mkdir -p models
+#   curl -L -o models/msd-musicnn-1.pb \
+#       https://essentia.upf.edu/models/feature-extractors/musicnn/msd-musicnn-1.pb
+#   curl -L -o models/deam-msd-musicnn-2.pb \
+#       https://essentia.upf.edu/models/classification-heads/deam/deam-msd-musicnn-2.pb
+# Without them, extract() silently uses the fallback for every segment.
 
 from pathlib import Path
 
@@ -43,11 +42,10 @@ _embedding_model = None
 _deam_model = None
 
 
+# Load both TensorFlow graphs once and cache them for later calls.
+# Raises if the model files are not present, extract() catches this the
+# same as any other essentia failure and falls back.
 def _load_essentia_models():
-    """Load both TensorFlow graphs once and cache them for later calls.
-    Raises if the model files are not present, extract() catches this the
-    same as any other essentia failure and falls back.
-    """
     global _embedding_model, _deam_model
     if _embedding_model is None:
         _embedding_model = TensorflowPredictMusiCNN(
@@ -60,12 +58,11 @@ def _load_essentia_models():
     return _embedding_model, _deam_model
 
 
+# Valence and arousal from Essentia's pretrained DEAM model.
+#
+# Raises on any failure. extract() is the only caller and always wraps
+# this in a try/except, falling back to _fallback_extract().
 def _essentia_extract(samples, sr):
-    """Valence and arousal from Essentia's pretrained DEAM model.
-
-    Raises on any failure. extract() is the only caller and always wraps
-    this in a try/except, falling back to _fallback_extract().
-    """
     if not _ESSENTIA_IMPORTED:
         raise RuntimeError("essentia is not installed")
 
@@ -126,16 +123,15 @@ _MINOR_PROFILE = np.array(
 _MIN_SAMPLES_SECONDS = 0.5
 
 
+# Clamp value to [low, high] then rescale it to 0 to 1.
 def _normalise(value, low, high):
-    """Clamp value to [low, high] then rescale it to 0 to 1."""
     value = max(low, min(high, value))
     return (value - low) / (high - low)
 
 
+# Major (1.0) or minor (0.0), from chroma correlated against the
+# Krumhansl-Schmuckler profiles.
 def _estimate_mode(samples, sr):
-    """Major (1.0) or minor (0.0), from chroma correlated against the
-    Krumhansl-Schmuckler profiles.
-    """
     chroma_mean = librosa.feature.chroma_cqt(y=samples, sr=sr).mean(axis=1)
 
     major_score = max(
@@ -147,16 +143,15 @@ def _estimate_mode(samples, sr):
     return 1.0 if major_score >= minor_score else 0.0
 
 
+# Fallback valence and arousal for one segment, from this segment's
+# own brightness, energy and mode.
+#
+# Returns valence and arousal in [-1, 1], Russell's circumplex
+# convention: negative valence is darker or sadder, negative arousal is
+# calmer. Brightness and mode drive valence, energy drives arousal, with
+# brightness giving arousal a smaller push too (a bright, loud segment
+# reads as more energetic than a bright, quiet one).
 def _fallback_extract(samples, sr):
-    """Fallback valence and arousal for one segment, from this segment's
-    own brightness, energy and mode.
-
-    Returns valence and arousal in [-1, 1], Russell's circumplex
-    convention: negative valence is darker or sadder, negative arousal is
-    calmer. Brightness and mode drive valence, energy drives arousal, with
-    brightness giving arousal a smaller push too (a bright, loud segment
-    reads as more energetic than a bright, quiet one).
-    """
     rms = float(np.sqrt(np.mean(samples**2)))
     energy = _normalise(rms, _ENERGY_LOW, _ENERGY_HIGH)
 
@@ -177,11 +172,10 @@ def _fallback_extract(samples, sr):
 # --- Public entry point ------------------------------------------------------
 
 
+# Valence and arousal for one segment, essentia's pretrained DEAM
+# model when it is available and working, the brightness/energy/mode
+# heuristic otherwise.
 def extract(samples, sr):
-    """Valence and arousal for one segment, essentia's pretrained DEAM
-    model when it is available and working, the brightness/energy/mode
-    heuristic otherwise.
-    """
     if samples.size < int(sr * _MIN_SAMPLES_SECONDS):
         return {}
 

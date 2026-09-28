@@ -20,9 +20,9 @@ class MusicState:
     onset_times: list = field(default_factory=list)
     beat_times: list = field(default_factory=list)
 
+    # Copy known feature keys onto this state, ignoring any key that is
+    # not a declared field so a stray key never crashes the pipeline.
     def update(self, features):
-        """Copy known feature keys onto this state, ignoring any key that is
-        not a declared field so a stray key never crashes the pipeline."""
         known = {f.name for f in fields(self)}
         for key, value in (features or {}).items():
             if key in known:

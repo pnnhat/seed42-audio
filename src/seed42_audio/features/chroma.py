@@ -2,8 +2,8 @@ import numpy as np
 import librosa
 
 
+# Key and mode features from one audio segment.
 def extract(samples, sr) -> dict:
-    """Key and mode features from one audio segment."""
 
     # Ensure input is a 1D numpy array.
     samples = np.asarray(samples).flatten()

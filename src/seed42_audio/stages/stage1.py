@@ -1,27 +1,26 @@
-"""Stage 1: rule-based prompt dictionary.
-
-Every Stage shares one signature, generate(state) -> dict with "prompt" and
-"negative_prompt" keys (see the D3 seam). No API calls, no stored state: each
-call looks only at the MusicState it is given.
-
-The dictionary is keyed on three signals read straight off MusicState:
-  - mood quadrant, from valence and arousal (Russell's circumplex, the same
-    convention mood/classify.py already uses: negative valence is darker or
-    sadder, negative arousal is calmer)
-  - mode, major or minor, from chroma.py
-  - energy band, low, mid or high, from the segment's RMS energy
-
-Key (the pitch class letter) is available on MusicState but is not used here.
-Twelve keys times two modes times four quadrants times three energy bands is
-a lot of table for a rule-based baseline, and mode alone already carries the
-light versus dark distinction key would add. Flagging this as an assumption
-per AGENTS.md: if the seam contract from Friday's meeting wants key in the
-mix too, this is the file to extend.
-
-Kept as three small per-signal tables joined into one line, rather than one
-nested table with an entry per quadrant/mode/band combination, so adding or
-tuning a phrase touches one line instead of several near-duplicate ones.
-"""
+# Stage 1: rule-based prompt dictionary.
+#
+# Every Stage shares one signature, generate(state) -> dict with "prompt" and
+# "negative_prompt" keys (see the D3 seam). No API calls, no stored state: each
+# call looks only at the MusicState it is given.
+#
+# The dictionary is keyed on three signals read straight off MusicState:
+#   - mood quadrant, from valence and arousal (Russell's circumplex, the same
+#     convention mood/classify.py already uses: negative valence is darker or
+#     sadder, negative arousal is calmer)
+#   - mode, major or minor, from chroma.py
+#   - energy band, low, mid or high, from the segment's RMS energy
+#
+# Key (the pitch class letter) is available on MusicState but is not used here.
+# Twelve keys times two modes times four quadrants times three energy bands is
+# a lot of table for a rule-based baseline, and mode alone already carries the
+# light versus dark distinction key would add. Flagging this as an assumption
+# per AGENTS.md: if the seam contract from Friday's meeting wants key in the
+# mix too, this is the file to extend.
+#
+# Kept as three small per-signal tables joined into one line, rather than one
+# nested table with an entry per quadrant/mode/band combination, so adding or
+# tuning a phrase touches one line instead of several near-duplicate ones.
 
 # --- Energy banding ----------------------------------------------------
 
@@ -31,8 +30,8 @@ _ENERGY_LOW = 0.0
 _ENERGY_HIGH = 0.3
 
 
+# Low, mid or high, from raw RMS energy. Mid if energy is not known yet.
 def _energy_band(energy):
-    """Low, mid or high, from raw RMS energy. Mid if energy is not known yet."""
     if energy is None:
         return "mid"
     normalised = (max(_ENERGY_LOW, min(_ENERGY_HIGH, energy)) - _ENERGY_LOW) / (
@@ -48,10 +47,9 @@ def _energy_band(energy):
 # --- Mood quadrant -------------------------------------------------------
 
 
+# One of four quadrants from valence and arousal, both in [-1, 1].
+# Treated as neutral (0.0) when not known yet, rather than erroring.
 def _quadrant(valence, arousal):
-    """One of four quadrants from valence and arousal, both in [-1, 1].
-    Treated as neutral (0.0) when not known yet, rather than erroring.
-    """
     valence = 0.0 if valence is None else valence
     arousal = 0.0 if arousal is None else arousal
     if arousal >= 0:
@@ -104,8 +102,8 @@ ENERGY_PHRASES = {
 }
 
 
+# Prompt and negative prompt for one MusicState, from the rule tables above.
 def generate(state) -> dict:
-    """Prompt and negative prompt for one MusicState, from the rule tables above."""
     quadrant = _quadrant(state.valence, state.arousal)
     mode = state.mode if state.mode in MODE_PHRASES else "major"
     band = _energy_band(state.energy)

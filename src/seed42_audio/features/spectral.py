@@ -1,4 +1,4 @@
-"""Spectral centroid, flatness, RMS, bass energy."""
+# Spectral centroid, flatness, RMS, bass energy.
 import librosa
 import numpy as np
 
@@ -23,8 +23,8 @@ def extract(samples, sr) -> dict:
 
     return {
         "brightness": brightness,
-        "energy": loudness, #changed from loudness to energy to match
-                            # MusicState field name (HATIM)
+        # changed from loudness to energy to match MusicState field name (HATIM)
+        "energy": loudness,
         "flatness": flatness,
         "bass_energy": bass_energy,
     }

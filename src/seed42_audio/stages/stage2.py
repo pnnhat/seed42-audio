@@ -1,18 +1,17 @@
-"""Stage 2: CLAP retrieval for visual prompt generation.
-
-The Stage 2 interface is:
-
-    generate(state) -> {
-        "prompt": "...",
-        "negative_prompt": "..."
-    }
-
-The phrase bank is embedded once when this module starts.
-The current audio window in state.samples is embedded once per cycle.
-
-If CLAP is unavailable or the Stage 2 cycle exceeds the time budget,
-Stage 1 is used as the fallback.
-"""
+# Stage 2: CLAP retrieval for visual prompt generation.
+#
+# The Stage 2 interface is:
+#
+#     generate(state) -> {
+#         "prompt": "...",
+#         "negative_prompt": "..."
+#     }
+#
+# The phrase bank is embedded once when this module starts.
+# The current audio window in state.samples is embedded once per cycle.
+#
+# If CLAP is unavailable or the Stage 2 cycle exceeds the time budget,
+# Stage 1 is used as the fallback.
 
 import json
 import time
@@ -40,8 +39,8 @@ _PHRASE_EMBEDDINGS = {}
 _CLAP_READY = False
 
 
+# Normalise embeddings for cosine similarity.
 def _normalise(embeddings):
-    """Normalise embeddings for cosine similarity."""
     values = np.asarray(embeddings, dtype=np.float32)
 
     if values.ndim == 1:
@@ -52,8 +51,8 @@ def _normalise(embeddings):
     return values / np.maximum(norms, 1e-12)
 
 
+# Load the phrase bank from JSON.
 def _load_phrase_bank():
-    """Load the phrase bank from JSON."""
     with open(PHRASE_BANK_PATH, "r", encoding="utf-8") as file:
         phrase_bank = json.load(file)
 
@@ -63,8 +62,8 @@ def _load_phrase_bank():
     return phrase_bank
 
 
+# Load CLAP and embed the phrase bank once at startup.
 def _initialise():
-    """Load CLAP and embed the phrase bank once at startup."""
     global _CLAP
     global _PHRASE_BANK
     global _PHRASE_EMBEDDINGS
@@ -112,15 +111,15 @@ def _initialise():
 _initialise()
 
 
+# Return the Stage 1 result unchanged.
 def _fallback(state):
-    """Return the Stage 1 result unchanged."""
     from seed42_audio.stages.stage1 import generate as stage1_generate
 
     return stage1_generate(state)
 
 
+# Convert the current audio window to mono 48 kHz audio.
 def _prepare_audio(samples):
-    """Convert the current audio window to mono 48 kHz audio."""
     import librosa
 
     audio = np.asarray(samples, dtype=np.float32)
@@ -148,12 +147,11 @@ def _prepare_audio(samples):
     return audio
 
 
+# Retrieve the closest phrase from each group.
+#
+# The closest phrase becomes part of the positive prompt.
+# The least-similar phrase becomes part of the negative prompt.
 def _retrieve_phrases(audio_embedding):
-    """Retrieve the closest phrase from each group.
-
-    The closest phrase becomes part of the positive prompt.
-    The least-similar phrase becomes part of the negative prompt.
-    """
     audio_embedding = _normalise(audio_embedding)[0]
 
     positive = {}
@@ -176,8 +174,8 @@ def _retrieve_phrases(audio_embedding):
     return positive, negative
 
 
+# Assemble retrieved phrases into one comma-separated prompt.
 def _assemble_prompt(phrases):
-    """Assemble retrieved phrases into one comma-separated prompt."""
     groups = ("subject", "motion", "lighting", "atmosphere")
 
     return ", ".join(
@@ -187,8 +185,8 @@ def _assemble_prompt(phrases):
     )
 
 
+# Generate prompt and negative prompt from the current audio window.
 def generate(state) -> dict:
-    """Generate prompt and negative prompt from the current audio window."""
     # Fall back immediately if CLAP was not available at startup.
     if not _CLAP_READY or _CLAP is None:
         return _fallback(state)
