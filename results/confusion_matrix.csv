@@ -1,0 +1,5 @@
+actual \ predicted,bright_energetic,bright_calm,dark_energetic,dark_calm
+bright_energetic,7,0,6,0
+bright_calm,0,0,7,4
+dark_energetic,5,1,6,2
+dark_calm,0,0,0,14
