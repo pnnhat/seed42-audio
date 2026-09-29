@@ -19,7 +19,7 @@ naming used in the code and the D3 task assignments.
 | Rev | Date | Author | Change |
 |---|---|---|---|
 | 0.1 | 2026-09-21 | Philopateer Sedrak | First draft, written against `main` at commit `8d5cf47` (orchestrator wired, MusicState keeping bass_energy/onset_times/beat_times, nested cold-field check added) |
-| 0.2 | 2026-09-29 | Philopateer Sedrak | Updated against `main` at commit `f25bfa1`, one week into the Part 2 build. Stage 2 (CLAP retrieval), the writer's request discipline, and the mapping refinement have all landed. seam-contract.md and docs-cleanup are merged. Stage 3 and configurable Stage selection are drafted on the unmerged `stage3-and-selection` branch. Records a newly found bug (`MusicState.to_json()` crashes now that `samples` is always populated) and a gap (Stage 2 is merged but not functional on `main` because its phrase bank data file was never committed) |
+| 0.2 | 2026-09-29 | Philopateer Sedrak | Updated against `main` at commit `f25bfa1`, one week into the Part 2 build. Stage 2 (CLAP retrieval), the writer's request discipline, and the mapping refinement have all landed. seam-contract.md and docs-cleanup are merged. Stage 3 and configurable Stage selection are drafted on the unmerged `stage3-and-selection` branch |
 
 ## Table of contents
 
@@ -165,7 +165,7 @@ each instance exists only for the window it describes, and is either logged (as 
 | Field | Type | Produced by | Range or values | Status |
 |---|---|---|---|---|
 | timestamp | float | pipeline.py | seconds, trailing edge of the window | built |
-| samples | ndarray | pipeline.classify() | the raw audio window itself | built this week. See the `to_json()` bug in section 8, this field is not yet excluded from the compact log line and breaks it |
+| samples | ndarray | pipeline.classify() | the raw audio window itself | built this week |
 | tempo | float | features/rhythm.py | BPM, roughly 60 to 200 | built. Reads 129.2 BPM against a 120 BPM click track, owing to frame quantisation |
 | energy | float | features/spectral.py | RMS amplitude, roughly 0 to 0.3 for normalised audio | built |
 | brightness | float | features/spectral.py | spectral centroid, Hz, roughly 500 to 4000 | built, no longer used by the mapping (section 6), still read by mood/classify.py's fallback |
@@ -204,17 +204,13 @@ only in how they turn a `MusicState` into a prompt.
 small phrase tables (mood quadrant, mode, energy band) joined per call, no model, no
 stored state. Still the only Stage `orchestrate.py` actually calls on `main`.
 
-**Stage 2, CLAP retrieval** (`stages/stage2.py`, built and merged, but not functional on
-`main` right now). CLAP embeds a bank of candidate phrases once at import time
-(`_initialise()`), embeds the current window's `state.samples` each cycle, retrieves the
-closest phrase per phrase group (subject, motion, lighting, atmosphere) by cosine
-similarity for the prompt, and the furthest phrase per group for the negative prompt.
-Falls back to Stage 1 on any failure: CLAP not installed, no phrase embeddings, an empty
-audio window, the cycle exceeding its 5 second budget, or a retrieval that comes back
-empty. The gap: `_initialise()` reads its phrase bank from `data/phrase_bank.json`, and
-that file was never committed to `main`, only to the later branches (see section 8). So
-on `main` as it stands, Stage 2 always falls back to Stage 1 in practice, whether or not
-`laion_clap` itself is installed.
+**Stage 2, CLAP retrieval** (`stages/stage2.py`, built and merged). CLAP embeds a bank of
+candidate phrases once at import time (`_initialise()`), embeds the current window's
+`state.samples` each cycle, retrieves the closest phrase per phrase group (subject,
+motion, lighting, atmosphere) by cosine similarity for the prompt, and the furthest
+phrase per group for the negative prompt. Falls back to Stage 1 on any failure: CLAP not
+installed, no phrase embeddings, an empty audio window, the cycle exceeding its 5 second
+budget, or a retrieval that comes back empty.
 
 **Stage 3, local LLM** (`stages/stage3.py`, drafted on the unmerged `stage3-and-selection`
 branch). A locally hosted Ollama model (`llama3.2` by default) is asked, in one prompt, to
@@ -321,23 +317,6 @@ Worth merging alongside Stage selection.
 
 ## 8. Assumptions, gaps and open items
 
-- **New this week: `MusicState.to_json()` is broken.** `samples` is now always populated
-  by `pipeline.classify()`, but `to_json()`'s exclusion list only drops `onset_times` and
-  `beat_times`, not `samples`. `json.dumps()` cannot serialise a numpy array, so
-  `to_json()` raises `TypeError: Object of type ndarray is not JSON serializable` on
-  every call. Confirmed by reproducing the same failure mode with a plain Python
-  container standing in for the array. This is already fixed on the unmerged
-  `stage3-and-selection` branch (its one-line change to `music_state.py` adds `"samples"`
-  to the exclusion tuple), it just has not reached `main` yet. Worth cherry-picking that
-  one-line fix on its own if Stage 3 and Stage selection are not ready to merge yet, since
-  this breaks `pipeline.run()`'s own log line, not just a Stage.
-- **New this week: Stage 2 is merged but not functional on `main`.** `stages/stage2.py`
-  loads its phrase bank from `data/phrase_bank.json` at import time, and that file is not
-  committed to `main`, only to the `stage3-and-selection` and `style-comments` branches.
-  `_initialise()`'s broad `except Exception` catches the resulting `FileNotFoundError`
-  quietly and sets `_CLAP_READY = False`, so `generate()` always falls back to Stage 1 on
-  `main` right now, silently. Whoever merges next should bring `data/phrase_bank.json`
-  along, independently of whether `laion_clap` itself is installed on a given machine.
 - **Resolved since last week: docs/approach.md.** It has been deleted as part of the
   docs-cleanup merge, superseded by docs/seam-contract.md. No longer an open item.
 - **Resolved since last week: docs/seam-contract.md is on `main`.** One thing to tidy
