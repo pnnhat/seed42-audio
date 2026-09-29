@@ -1,4 +1,4 @@
-"""Entry point: play a song in segments and print each window as it arrives."""
+# Entry point: play a song in segments and print each window as it arrives.
 
 from seed42_audio.io.stream import AudioStream
 
