@@ -1,4 +1,4 @@
-"""The every-X-seconds loop: read segments, extract features, emit a classification."""
+# The every-X-seconds loop: read segments, extract features, emit a classification.
 
 import importlib
 from seed42_audio import state
@@ -28,7 +28,7 @@ def load_extractors():
 
 def classify(samples, sr, timestamp, extractors):
     state = MusicState(
-	timestamp=round(timestamp, 1),
+    timestamp=round(timestamp, 1),
     	samples=samples,
     )
 
@@ -40,10 +40,9 @@ def classify(samples, sr, timestamp, extractors):
     return state
 
 
+# Play the given files back to back and print one classification every
+# `emit_every` seconds, each built from the trailing `window` seconds.
 def run(paths, sr=22050, window=30.0, hop=1.0, emit_every=60.0, on_emit=None):
-    """Play the given files back to back and print one classification every
-    `emit_every` seconds, each built from the trailing `window` seconds.
-    """
     extractors = load_extractors()
     elapsed = 0.0
     next_emit = emit_every

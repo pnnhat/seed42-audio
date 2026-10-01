@@ -1,17 +1,14 @@
-"""Rhythm features from one audio segment: tempo, onsets, 
-    beats (causal, Phase 1)."""
+# Rhythm features from one audio segment: tempo, onsets, beats (causal, Phase 1).
 
 import numpy as np
 import librosa
 
 
+# Return tempo (BPM), onset times and beat times for one segment.
+#
+# Times are seconds from the start of the segment, not the whole track.
+# MusicState keeps tempo; onset_times and beat_times are for the mapping stage.
 def extract(samples, sr):
-    """Return tempo (BPM), onset times and beat times for one segment.
-
-    Times are seconds from the start of the segment, not the 
-    whole track. MusicState keeps tempo; onset_times and 
-    beat_times are for the mapping stage.
-    """
     onset_env = librosa.onset.onset_strength(y=samples, sr=sr)
     tempo, beat_frames = librosa.beat.beat_track(
         onset_envelope=onset_env, sr=sr)

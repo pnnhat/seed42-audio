@@ -1,4 +1,4 @@
-"""Entry point: play songs back to back and print a classification every 60 seconds."""
+# Entry point: play songs back to back and print a classification every 60 seconds.
 
 import os
 

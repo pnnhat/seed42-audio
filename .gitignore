@@ -13,6 +13,7 @@ env/
 data/*
 !data/.gitkeep
 !data/test.wav
+!data/phrase_bank.json
 
 # Pretrained model weights: large binaries, download per-machine instead
 # of committing (see mood/classify.py's docstring for the curl commands).
