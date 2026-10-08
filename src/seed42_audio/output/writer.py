@@ -239,14 +239,25 @@ def send(stream_id, params) -> dict:
     for attempt in range(1, MAX_ATTEMPTS + 1):
         if attempt > 1:
             time.sleep(RETRY_DELAY)
-        response = _request(
-            "patch",
-            "PATCH",
-            "/api/streams",
-            attempt=attempt,
-            headers=_headers(),
-            json={"id": stream_id, "params": params},
-        )
+        try:
+            response = _request(
+                "patch",
+                "PATCH",
+                "/api/streams",
+                attempt=attempt,
+                headers=_headers(),
+                json={"id": stream_id, "params": params},
+            )
+        except requests.Timeout:
+            # No reply within REQUEST_TIMEOUT, and _request has logged the
+            # attempt. Drop this update instead of crashing the session or
+            # sending it late; the next cycle sends fresh values.
+            print(
+                "[output.writer] patch timed out after %s seconds, update dropped"
+                % REQUEST_TIMEOUT,
+                flush=True,
+            )
+            return {}
         if not _not_ready(response):
             break
     if _not_ready(response):
