@@ -1,0 +1,11 @@
+id,file,group,status,duration_s,title,artist,source_url,source_file,licence,licence_url,ai_generated,trim,added_by,added_on,retired_on,notes
+,bright_calm_1.mp3,bright_calm,active,49.2,,,,,,,,,Jayden,2026-09-30,,
+,bright_calm_2.mp3,bright_calm,active,147.4,,,,,,,,,Jayden,2026-09-30,,
+,bright_energetic_1.wav,bright_energetic,retired,59.1,,,,,,,,,Jayden,2026-09-30,2026-10-11,"Football track. Removed from the corpus on 2026-10-11. The same audio (identical md5) stays as data/test.wav, the harness fixture, which scripts/evaluate_stages.py excludes from the corpus. Still in git history before c1629d4."
+,bright_energetic_2.mp3,bright_energetic,active,133.9,,,,,,,,,Jayden,2026-09-30,,
+,bright_energetic_3.mp3,bright_energetic,active,59.0,Upbeat - Upbeat Music,The_Mountain (Dmitrii Kolesnikov),https://pixabay.com/music/old-school-hip-hop-upbeat-upbeat-music-567445/,the_mountain-upbeat-upbeat-music-567445.mp3,Pixabay Content License,https://pixabay.com/service/license-summary/,yes,"first 59 s of 155.6 s, ffmpeg stream copy, no re-encode",Hatim,2026-10-11,,"Published on Pixabay 2026-07-17, downloaded 2026-10-11. Pixabay tags: Bright, Laid Back, Uplifting, Energetic, Restless; genre Old School Hip Hop. Under features/rhythm.py and chroma.py all six windows read 89.1 BPM, F minor, RMS 0.27, centroid about 2100 Hz. The licence bars selling or distributing the unmodified file on a standalone basis; raise in the Andu licence discussion."
+,dark_calm_1.mp3,dark_calm,active,133.0,,,,,,,,,Jayden,2026-09-30,,
+,dark_calm_2.mp3,dark_calm,active,125.2,,,,,,,,,Jayden,2026-09-30,,
+,dark_energetic_1.mp3,dark_energetic,active,120.2,,,,,,,,,Jayden,2026-09-30,,
+,dark_energetic_2.mp3,dark_energetic,active,107.7,,,,,,,,,Jayden,2026-09-30,,
+,test.wav,fixture,active,59.1,,,,,,,,,,,,"Harness and dev default (tests/harness.py, compare_stages.py, scripts/run_pipeline.py, orchestrate.py). Same audio as the retired bright_energetic_1.wav. Not a corpus track; excluded by scripts/evaluate_stages.py. Who added it and when: git log -- data/test.wav. Source and licence pending the licences doc from the sponsor pack."

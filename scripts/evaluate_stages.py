@@ -41,7 +41,7 @@ COLUMNS = (["file", "group", "timestamp"] + FEATURES
 
 
 def clips():
-    # Every audio file in data/ except test.wav, which bright_energetic_1.wav copies.
+        # Every audio file in data/ except test.wav, the harness fixture (see data/corpus_manifest.csv).
     return sorted(
         p for p in DATA.iterdir()
         if p.suffix.lower() in (".wav", ".mp3", ".flac") and p.name != "test.wav"
