@@ -5,3 +5,4 @@ soundfile
 essentia-tensorflow
 pyyaml
 requests
+matplotlib
