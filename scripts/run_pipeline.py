@@ -4,14 +4,14 @@ import os
 
 os.chdir(r"C:\Users\phamn\Documents\Project\seed42")
 print(os.getcwd())
-print(os.path.exists("data/test.wav"))
+print(os.path.exists("data/bright_energetic_3.mp3"))
 
 from seed42_audio.pipeline import run
 
 if __name__ == "__main__":
     songs = [
-        "data/test.wav",
+        "data/bright_energetic_3.mp3",
     ]
     run(songs, window=30.0, hop=1.0, emit_every=60.0)
 
-run(["data/test.wav"], window=30.0, hop=1.0, emit_every=10.0)
+run(["data/bright_energetic_3.mp3"], window=30.0, hop=1.0, emit_every=10.0)
