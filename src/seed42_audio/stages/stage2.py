@@ -21,6 +21,7 @@ CYCLE_BUDGET_SECONDS = 5.0
 # CLAP and phrase embeddings are loaded once at startup.
 _CLAP = None
 _PHRASE_BANK = {}
+_OPPOSITES = {}
 _PHRASE_EMBEDDINGS = {}
 _CLAP_READY = False
 
@@ -46,6 +47,10 @@ def _normalise(embeddings):
     return values / np.maximum(norms, 1e-12)
 
 
+# Load the phrase bank from JSON.
+#
+# Each group is a list of [phrase, written opposite] pairs. Returns the flat
+# phrase list per group, and for each phrase the index of its written opposite.
 def _load_phrase_bank():
     """Load the phrase bank from JSON."""
     with open(PHRASE_BANK_PATH, "r", encoding="utf-8") as file:
@@ -54,20 +59,40 @@ def _load_phrase_bank():
     if not isinstance(phrase_bank, dict):
         raise ValueError("Phrase bank must contain phrase groups.")
 
-    return phrase_bank
+    phrases = {}
+    opposites = {}
+
+    for group, pairs in phrase_bank.items():
+        phrases[group] = []
+        opposites[group] = []
+
+        for pair in pairs:
+            if not isinstance(pair, list) or len(pair) != 2:
+                raise ValueError(
+                    f"Phrase bank group '{group}' must hold "
+                    f"[phrase, opposite] pairs, got {pair!r}"
+                )
+
+            index = len(phrases[group])
+            phrases[group].extend(pair)
+            opposites[group].extend([index + 1, index])
+
+    return phrases, opposites
 
 
 def _initialise():
     """Load CLAP and embed the phrase bank once at startup."""
     global _CLAP
     global _PHRASE_BANK
+    global _OPPOSITES
     global _PHRASE_EMBEDDINGS
     global _CLAP_READY
 
     try:
         import laion_clap
 
-        _PHRASE_BANK = _load_phrase_bank()
+        # Load the phrase bank once.
+        _PHRASE_BANK, _OPPOSITES = _load_phrase_bank()
 
         _CLAP = laion_clap.CLAP_Module(enable_fusion=False)
         _CLAP.load_ckpt()
@@ -94,6 +119,7 @@ def _initialise():
     except Exception as error:
         _CLAP = None
         _PHRASE_BANK = {}
+        _OPPOSITES = {}
         _PHRASE_EMBEDDINGS = {}
         _CLAP_READY = False
 
@@ -190,24 +216,12 @@ def _embed_audio_window(audio, started):
     return _normalise(window_embedding)[0]
 
 
-def _find_contrast_index(group, positive_index):
-    """Return the explicit semantic contrast of the selected phrase."""
-    phrases = _PHRASE_BANK.get(group, [])
-
-    for first, second in _CONTRAST_PAIRS.get(group, []):
-        if positive_index == first:
-            return second
-
-        if positive_index == second:
-            return first
-
-    # Safe fallback if a group has an unexpected phrase count.
-    if phrases:
-        return (positive_index + 1) % len(phrases)
-
-    return None
-
-
+# Retrieve the closest phrase from each group.
+#
+# The closest phrase becomes part of the positive prompt.
+# Its written opposite from the phrase bank becomes part of the negative
+# prompt (D-04). The least-similar phrase was used before, but it was the
+# written opposite in only 78 of 400 group choices on 30 September.
 def _retrieve_phrases(audio_embedding):
     """Retrieve the closest phrase and its explicit contrast per group."""
     audio_embedding = _normalise(audio_embedding)[0]
@@ -223,17 +237,10 @@ def _retrieve_phrases(audio_embedding):
 
         similarities = phrase_embeddings @ audio_embedding
         closest_index = int(np.argmax(similarities))
-
-        contrast_index = _find_contrast_index(
-            group,
-            closest_index,
-        )
-
-        if contrast_index is None:
-            continue
+        opposite_index = _OPPOSITES[group][closest_index]
 
         positive[group] = phrases[closest_index]
-        negative[group] = phrases[contrast_index]
+        negative[group] = phrases[opposite_index]
 
     return positive, negative
 
@@ -278,7 +285,17 @@ def generate(state) -> dict:
             started,
         )
 
-        # Retrieve one closest phrase and its explicit contrast per group.
+        # Check the cycle budget after audio embedding.
+        elapsed = time.perf_counter() - started
+
+        if elapsed > CYCLE_BUDGET_SECONDS:
+            print(
+                f"[stage2] cycle budget exceeded "
+                f"({elapsed:.2f}s); using Stage 1"
+            )
+            return _fallback(state)
+
+        # Retrieve the closest phrase and its written opposite per group.
         positive, negative = _retrieve_phrases(audio_embedding)
 
         # Check the complete retrieval cycle.

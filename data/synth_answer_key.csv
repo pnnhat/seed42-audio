@@ -1,0 +1,7 @@
+file,tempo_bpm,key,mode,flatness,notes
+synth_silence.wav,none,none,none,none,"Edge case. The pipeline must not crash. Key detection falls back to C major on silence, which is a default rather than a reading."
+synth_clicks_120bpm.wav,120,none,none,none,"Tempo check. The nearest steps are 117.5 and 123.0, so either counts as correct. 60 or 240 would be an octave error."
+synth_chord_c_major.wav,none,C,major,low,"Key and mode check. No beat, so any tempo reported is not meaningful."
+synth_chord_a_minor.wav,none,A,minor,low,"Key and mode check. No beat, so any tempo reported is not meaningful."
+synth_white_noise.wav,none,none,none,high,Flatness check. Noise should read far flatter than the chords. Any key or tempo reported is not meaningful.
+synth_transition_90_to_140bpm.wav,90 then 140,A then F#,minor then major,low,"Change at 45 s, quiet to loud. 90 reads as the step 89.1 and 140 as 143.6. Windows that straddle the change show blended readings."

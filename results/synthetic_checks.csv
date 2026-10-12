@@ -1,0 +1,8 @@
+check,passed,total
+"120 BPM clicks, tempo on a nearest step",7,7
+"C major chord, key and mode",7,7
+"A minor chord, key and mode",7,7
+White noise flatter than every chord window,1,1
+"Transition before the change, 90 BPM step and A minor",4,4
+"Transition after the change, 140 BPM step and F# major",4,4
+Silence runs without an error row,1,1

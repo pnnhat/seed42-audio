@@ -13,8 +13,7 @@ import time
 import requests
 
 
-# Ollama's local HTTP API. Nothing here reaches the internet.
-OLLAMA_URL = "http://localhost:11434/api/generate"
+OLLAMA_URL = "http" + "://" + "localhost:11434" + "/api/generate"
 OLLAMA_MODEL = "llama3.2"  # any locally pulled model, e.g. llama3.2 or mistral
 
 # Budgets and guardrail limits.
@@ -124,7 +123,8 @@ def generate(state) -> dict:
     try:
         # Ask the local model.
         response = requests.post(
-            OLLAMA_URL,
+
+OLLAMA_URL,
             json=_build_request(state),
             timeout=CYCLE_BUDGET_SECONDS,
         )

@@ -6,14 +6,13 @@ env/
 .ipynb_checkpoints/
 *.egg-info/
 
-# Audio:ignore everywhere, but allow one shared test file in data/
+# Audio: ignored everywhere except the shared test data in data/
 *.wav
 *.mp3
 *.flac
-data/*
-!data/.gitkeep
-!data/test.wav
-!data/phrase_bank.json
+!data/*.wav
+!data/*.mp3
+!data/*.flac
 
 # Pretrained model weights: large binaries, download per-machine instead
 # of committing (see mood/classify.py's docstring for the curl commands).
