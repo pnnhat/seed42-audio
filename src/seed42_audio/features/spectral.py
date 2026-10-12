@@ -19,11 +19,14 @@ def extract(samples, sr) -> dict:
     stft = np.abs(librosa.stft(samples))
     freqs = librosa.fft_frequencies(sr=sr)
     bass_mask = freqs < 250
-    bass_energy = float(np.sum(stft[bass_mask]) / np.sum(stft))
-
+    total = np.sum(stft)
+    if total == 0:   # Silence gives an all-zero spectrum, so return 0.0 rather than dividing by zero
+        bass_energy = 0.0
+    else:
+        bass_energy = float(np.sum(stft[bass_mask]) / total)
+    
     return {
         "brightness": brightness,
-        # changed from loudness to energy to match MusicState field name (HATIM)
         "energy": loudness,
         "flatness": flatness,
         "bass_energy": bass_energy,
