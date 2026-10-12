@@ -64,4 +64,4 @@ if __name__ == "__main__":
 
     # Stage from the SEED42_STAGE env var, default 1. Paths from the argv tail.
     stage = int(os.environ.get("SEED42_STAGE", "1"))
-    run_dev(sys.argv[1:] or ["data/test.wav"], stage=stage)
+    run_dev(sys.argv[1:] or ["data/bright_energetic_3.mp3"], stage=stage)

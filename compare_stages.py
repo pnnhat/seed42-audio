@@ -3,8 +3,8 @@
 # (rule table), Stage 2 (CLAP retrieval), and Stage 3 (local LLM), so the three
 # methods can be compared on identical input, with each Stage's own latency.
 #
-#   python compare_stages.py                 # first window of data/test.wav
-#   python compare_stages.py data/test.wav
+#   python compare_stages.py                 # first window of data/bright_energetic_3.mp3
+#   python compare_stages.py data/bright_energetic_3.mp3
 
 import sys
 import time
@@ -41,7 +41,7 @@ def show(label, module, state):
 
 
 def main():
-    path = sys.argv[1] if len(sys.argv) > 1 else "data/test.wav"
+    path = sys.argv[1] if len(sys.argv) > 1 else "data/bright_energetic_3.mp3"
     state = one_state(path)
     print(
         "MusicState: key %s %s, valence %.2f, arousal %.2f, energy %.2f, tempo %.0f BPM"
