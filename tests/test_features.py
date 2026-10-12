@@ -1,11 +1,15 @@
-# The synthetic checks as pytest: every synthetic clip in data/ against its
-# known answer in data/synth_answer_key.csv. Windowing copies windows() in
-# scripts/evaluate_stages.py and the pass rules copy synthetic_checks() in
-# scripts/evaluation.py, so this file and the evaluation report agree by
-# construction. The real extractors run on real windows, nothing is simulated.
+# The synthetic checks as pytest: every synthetic clip in data/ against the
+# answer recorded for it in data/synth_answer_key.csv. Windowing copies
+# windows() in scripts/evaluate_stages.py and the pass rules copy
+# synthetic_checks() in scripts/evaluation.py, so this file and the evaluation
+# report agree by construction. The real extractors run on real windows.
+#
+# Clips are decoded inside module-scoped fixtures, so collection is instant and
+# a missing clip skips only the tests that need it.
 #
 #   python -m pytest        # from the repo root with the seed42 env active
 
+import csv
 import math
 from pathlib import Path
 
@@ -27,7 +31,10 @@ SWITCH = 45.0      # the transition clip changes tempo and key at 45 s
 
 
 def windows(name, limit=LIMIT):
-    stream = AudioStream(str(DATA / name), sr=SR, window=WINDOW, hop=1.0)
+    path = DATA / name
+    if not path.exists():
+        pytest.skip("%s is missing from data/" % name)
+    stream = AudioStream(str(path), sr=SR, window=WINDOW, hop=1.0)
     next_at = WINDOW
     out = []
     for timestamp, samples in stream.segments():
@@ -39,21 +46,59 @@ def windows(name, limit=LIMIT):
     return out
 
 
-def params(wins):
-    return [pytest.param(samples, id="t=%g" % t) for t, samples in wins]
+@pytest.fixture(scope="module")
+def clicks():
+    return windows("synth_clicks_120bpm.wav")
 
 
-CLICKS = windows("synth_clicks_120bpm.wav")
-C_MAJOR = windows("synth_chord_c_major.wav")
-A_MINOR = windows("synth_chord_a_minor.wav")
-NOISE = windows("synth_white_noise.wav")
-SILENCE = windows("synth_silence.wav")
-TRANSITION = windows("synth_transition_90_to_140bpm.wav", limit=math.inf)
-BEFORE = [(t, s) for t, s in TRANSITION if t <= SWITCH]
-AFTER = [(t, s) for t, s in TRANSITION if t >= SWITCH + WINDOW]
+@pytest.fixture(scope="module")
+def c_major():
+    return windows("synth_chord_c_major.wav")
 
 
-# --- Tempo steps, as evaluation.py scores them ---------------------------------
+@pytest.fixture(scope="module")
+def a_minor():
+    return windows("synth_chord_a_minor.wav")
+
+
+@pytest.fixture(scope="module")
+def noise():
+    return windows("synth_white_noise.wav")
+
+
+@pytest.fixture(scope="module")
+def silence():
+    return windows("synth_silence.wav")
+
+
+@pytest.fixture(scope="module")
+def transition():
+    return windows("synth_transition_90_to_140bpm.wav", limit=math.inf)
+
+
+# --- The answer key --------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def answers():
+    # One row per clip, keyed by file name. Cells hold a single value, "none",
+    # or a before-and-after pair written as "90 then 140".
+    path = DATA / "synth_answer_key.csv"
+    if not path.exists():
+        pytest.skip("synth_answer_key.csv is missing from data/")
+    with open(path, newline="", encoding="utf-8") as f:
+        return {row["file"]: row for row in csv.DictReader(f)}
+
+
+def expected(row, column):
+    value = row[column].strip()
+    if value == "none":
+        return None
+    parts = [p.strip() for p in value.split(" then ")]
+    return parts if len(parts) > 1 else parts[0]
+
+
+# --- Pass rules, as evaluation.py scores them -----------------------------------
 
 
 def tempo_steps(true_bpm):
@@ -67,58 +112,81 @@ def on_step(tempo, true_bpm):
     return any(abs(tempo - s) < 0.1 for s in tempo_steps(true_bpm))
 
 
+def key_mode(samples):
+    result = chroma.extract(samples, SR)
+    return result["key"], result["mode"]
+
+
+def check(wins, test, label):
+    # Apply test to every window and name the timestamps that fail.
+    assert wins, "no windows to check for %s" % label
+    bad = [t for t, samples in wins if not test(samples)]
+    assert not bad, "%s failed at t=%s (%d of %d windows passed)" % (
+        label, bad, len(wins) - len(bad), len(wins))
+
+
 # --- The seven checks ----------------------------------------------------------
 
 
-@pytest.mark.parametrize("samples", params(CLICKS))
-def test_clicks_tempo_on_nearest_step(samples):
-    tempo = rhythm.extract(samples, SR)["tempo"]
-    assert on_step(tempo, 120), "tempo %.3f is not on a step around 120 BPM %s" % (
-        tempo, [round(s, 3) for s in tempo_steps(120)])
+def test_clicks_tempo_on_nearest_step(clicks, answers):
+    bpm = float(expected(answers["synth_clicks_120bpm.wav"], "tempo_bpm"))
+    check(clicks, lambda s: on_step(rhythm.extract(s, SR)["tempo"], bpm),
+          "tempo on a step around %g BPM %s" % (bpm, [round(x, 2) for x in tempo_steps(bpm)]))
 
 
-@pytest.mark.parametrize("samples", params(C_MAJOR))
-def test_c_major_chord_key_and_mode(samples):
-    result = chroma.extract(samples, SR)
-    assert (result["key"], result["mode"]) == ("C", "major")
+def test_c_major_chord_key_and_mode(c_major, answers):
+    row = answers["synth_chord_c_major.wav"]
+    want = (expected(row, "key"), expected(row, "mode"))
+    check(c_major, lambda s: key_mode(s) == want, "key and mode %s" % (want,))
 
 
-@pytest.mark.parametrize("samples", params(A_MINOR))
-def test_a_minor_chord_key_and_mode(samples):
-    result = chroma.extract(samples, SR)
-    assert (result["key"], result["mode"]) == ("A", "minor")
+def test_a_minor_chord_key_and_mode(a_minor, answers):
+    row = answers["synth_chord_a_minor.wav"]
+    want = (expected(row, "key"), expected(row, "mode"))
+    check(a_minor, lambda s: key_mode(s) == want, "key and mode %s" % (want,))
 
 
-def test_white_noise_flatter_than_every_chord_window():
-    noise = [spectral.extract(s, SR)["flatness"] for _, s in NOISE]
-    chords = [spectral.extract(s, SR)["flatness"] for _, s in C_MAJOR + A_MINOR]
-    assert min(noise) > max(chords), "noise min %.4f, chord max %.4f" % (
-        min(noise), max(chords))
+def test_white_noise_flatter_than_every_chord_window(noise, c_major, a_minor, answers):
+    # The key records flatness as "high" for noise and "low" for the chords;
+    # evaluation.py scores that as the lowest noise window above the highest chord window.
+    assert expected(answers["synth_white_noise.wav"], "flatness") == "high"
+    noise_flat = [spectral.extract(s, SR)["flatness"] for _, s in noise]
+    chord_flat = [spectral.extract(s, SR)["flatness"] for _, s in c_major + a_minor]
+    assert noise_flat and chord_flat, "no windows to compare"
+    assert min(noise_flat) > max(chord_flat), "noise min %.4f, chord max %.4f" % (
+        min(noise_flat), max(chord_flat))
 
 
-@pytest.mark.parametrize("samples", params(BEFORE))
-def test_transition_before_change_90bpm_a_minor(samples):
-    tempo = rhythm.extract(samples, SR)["tempo"]
-    result = chroma.extract(samples, SR)
-    assert on_step(tempo, 90), "tempo %.3f is not on a step around 90 BPM" % tempo
-    assert (result["key"], result["mode"]) == ("A", "minor")
+def test_transition_before_the_change(transition, answers):
+    row = answers["synth_transition_90_to_140bpm.wav"]
+    bpm = float(expected(row, "tempo_bpm")[0])
+    want = (expected(row, "key")[0], expected(row, "mode")[0])
+    before = [(t, s) for t, s in transition if t <= SWITCH]
+    check(before,
+          lambda s: on_step(rhythm.extract(s, SR)["tempo"], bpm) and key_mode(s) == want,
+          "before the change, %g BPM and %s" % (bpm, want))
 
 
-@pytest.mark.parametrize("samples", params(AFTER))
-def test_transition_after_change_140bpm_f_sharp_major(samples):
-    tempo = rhythm.extract(samples, SR)["tempo"]
-    result = chroma.extract(samples, SR)
-    assert on_step(tempo, 140), "tempo %.3f is not on a step around 140 BPM" % tempo
-    assert (result["key"], result["mode"]) == ("F#", "major")
+def test_transition_after_the_change(transition, answers):
+    row = answers["synth_transition_90_to_140bpm.wav"]
+    bpm = float(expected(row, "tempo_bpm")[1])
+    want = (expected(row, "key")[1], expected(row, "mode")[1])
+    after = [(t, s) for t, s in transition if t >= SWITCH + WINDOW]
+    check(after,
+          lambda s: on_step(rhythm.extract(s, SR)["tempo"], bpm) and key_mode(s) == want,
+          "after the change, %g BPM and %s" % (bpm, want))
 
 
-@pytest.mark.parametrize("samples", params(SILENCE))
-def test_silence_runs_without_error(samples):
+def test_silence_runs_without_error(silence):
     # The three Phase 1 extractors must return on an all-zero window. The full
     # classify and mapping path on silence is covered by evaluate_stages.py.
-    rhythm.extract(samples, SR)
-    spectral.extract(samples, SR)
-    chroma.extract(samples, SR)
+    def runs(samples):
+        rhythm.extract(samples, SR)
+        spectral.extract(samples, SR)
+        chroma.extract(samples, SR)
+        return True
+
+    check(silence, runs, "extractors on silence")
 
 
 # --- Known open defect ---------------------------------------------------------
@@ -128,10 +196,12 @@ def test_silence_runs_without_error(samples):
     strict=True,
     reason="D-07: bass_energy divides by zero on an empty spectrum, fix in PR #23",
 )
-@pytest.mark.parametrize("samples", params(SILENCE))
-def test_silence_spectral_has_no_nan(samples):
+def test_silence_spectral_has_no_nan(silence):
     # strict=True means this flips to a failure the moment D-07 merges, which is
     # the signal to delete the xfail marker and keep the test as a plain pass.
-    result = spectral.extract(samples, SR)
-    assert not any(math.isnan(v) for v in result.values()), result
-    assert result["bass_energy"] == 0.0
+    def clean(samples):
+        result = spectral.extract(samples, SR)
+        return (not any(math.isnan(v) for v in result.values())
+                and result["bass_energy"] == 0.0)
+
+    check(silence, clean, "spectral on silence has no NaN")
