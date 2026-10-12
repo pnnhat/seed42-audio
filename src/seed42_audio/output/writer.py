@@ -11,7 +11,7 @@
 #
 # Build against the mock (scripts/mock-control-api.py), not a live stream. A live
 # stream can end on its own, which is indistinguishable from a bug in here.
-# Switching to live is one change, BASE_URL.
+# Switching to live is one setting, SEED42_BASE_URL, not a code edit.
 
 import json
 import os
@@ -24,7 +24,9 @@ import requests
 MOCK_URL = "http://127.0.0.1:8787"
 LIVE_URL = "https://seed42.app"
 
-BASE_URL = MOCK_URL  # the one line that changes when we go live
+# The mock unless SEED42_BASE_URL says otherwise. Going live, or handing over,
+# sets it to LIVE_URL's address instead of editing this file.
+BASE_URL = (os.environ.get("SEED42_BASE_URL") or MOCK_URL).rstrip("/")
 
 # Request discipline, from docs/seam-contract.md.
 REQUEST_TIMEOUT = 12  # seconds to wait on the server before a call is aborted
@@ -134,11 +136,12 @@ def login() -> str:
 
 # Create a stream and return its id once it can take parameters.
 #
-# For development only. In production seed42 creates the stream and gives us
-# the id, which we pass straight to send(). model_id, width and height
-# default server-side if omitted. A 201 is ready to use. A 202 means accepted
-# and still starting, so poll until it is ready. Never poll after a 201, the
-# status endpoint may answer 404 then and that is not an error.
+# Used in development. Whether seed42 creates the stream in production and
+# gives us its id, or we create it here, is still open with the sponsor.
+# model_id, width and height default server-side if omitted. A 201 is ready
+# to use. A 202 means accepted and still starting, so poll until it is ready.
+# Never poll after a 201, the status endpoint may answer 404 then and that is
+# not an error.
 def create_stream(params=None) -> str:
     response = _request(
         "create",

@@ -82,3 +82,6 @@ def test_timed_out_patch_is_dropped_and_session_carries_on(monkeypatch, capsys):
     # The session carried on: the next update went through as normal.
     assert second == {"status": "applied"}
     assert records[1]["status"] == 200
+    # Exactly two PATCHes reached the server: the timed-out one was not
+    # retried, and the next cycle sent its own.
+    assert SlowFirstPatch.patches == 2
