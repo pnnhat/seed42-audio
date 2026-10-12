@@ -35,6 +35,7 @@ CYCLE_BUDGET_SECONDS = 5.0
 # CLAP and phrase embeddings are loaded once at startup.
 _CLAP = None
 _PHRASE_BANK = {}
+_OPPOSITES = {}
 _PHRASE_EMBEDDINGS = {}
 _CLAP_READY = False
 
@@ -52,6 +53,9 @@ def _normalise(embeddings):
 
 
 # Load the phrase bank from JSON.
+#
+# Each group is a list of [phrase, written opposite] pairs. Returns the flat
+# phrase list per group, and for each phrase the index of its written opposite.
 def _load_phrase_bank():
     with open(PHRASE_BANK_PATH, "r", encoding="utf-8") as file:
         phrase_bank = json.load(file)
@@ -59,13 +63,32 @@ def _load_phrase_bank():
     if not isinstance(phrase_bank, dict):
         raise ValueError("Phrase bank must contain phrase groups.")
 
-    return phrase_bank
+    phrases = {}
+    opposites = {}
+
+    for group, pairs in phrase_bank.items():
+        phrases[group] = []
+        opposites[group] = []
+
+        for pair in pairs:
+            if not isinstance(pair, list) or len(pair) != 2:
+                raise ValueError(
+                    f"Phrase bank group '{group}' must hold "
+                    f"[phrase, opposite] pairs, got {pair!r}"
+                )
+
+            index = len(phrases[group])
+            phrases[group].extend(pair)
+            opposites[group].extend([index + 1, index])
+
+    return phrases, opposites
 
 
 # Load CLAP and embed the phrase bank once at startup.
 def _initialise():
     global _CLAP
     global _PHRASE_BANK
+    global _OPPOSITES
     global _PHRASE_EMBEDDINGS
     global _CLAP_READY
 
@@ -73,7 +96,7 @@ def _initialise():
         import laion_clap
 
         # Load the phrase bank once.
-        _PHRASE_BANK = _load_phrase_bank()
+        _PHRASE_BANK, _OPPOSITES = _load_phrase_bank()
 
         # Load CLAP once.
         _CLAP = laion_clap.CLAP_Module(enable_fusion=False)
@@ -101,6 +124,7 @@ def _initialise():
     except Exception as error:
         _CLAP = None
         _PHRASE_BANK = {}
+        _OPPOSITES = {}
         _PHRASE_EMBEDDINGS = {}
         _CLAP_READY = False
 
@@ -150,7 +174,9 @@ def _prepare_audio(samples):
 # Retrieve the closest phrase from each group.
 #
 # The closest phrase becomes part of the positive prompt.
-# The least-similar phrase becomes part of the negative prompt.
+# Its written opposite from the phrase bank becomes part of the negative
+# prompt (D-04). The least-similar phrase was used before, but it was the
+# written opposite in only 78 of 400 group choices on 30 September.
 def _retrieve_phrases(audio_embedding):
     audio_embedding = _normalise(audio_embedding)[0]
 
@@ -166,10 +192,10 @@ def _retrieve_phrases(audio_embedding):
         similarities = phrase_embeddings @ audio_embedding
 
         closest_index = int(np.argmax(similarities))
-        furthest_index = int(np.argmin(similarities))
+        opposite_index = _OPPOSITES[group][closest_index]
 
         positive[group] = phrases[closest_index]
-        negative[group] = phrases[furthest_index]
+        negative[group] = phrases[opposite_index]
 
     return positive, negative
 
@@ -222,7 +248,7 @@ def generate(state) -> dict:
             )
             return _fallback(state)
 
-        # Retrieve one closest and one least-similar phrase per group.
+        # Retrieve the closest phrase and its written opposite per group.
         positive, negative = _retrieve_phrases(audio_embedding)
 
         # Check the complete retrieval cycle.
