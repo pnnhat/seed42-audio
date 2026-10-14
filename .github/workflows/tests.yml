@@ -1,0 +1,27 @@
+# Run the synthetic checks on every pull request and on every push to main.
+# CLAP, torch and Ollama are left out on purpose: tests/test_stage2_negatives.py
+# stands in for CLAP, and nothing under tests/ needs Stage 3. Installing torch
+# here would add minutes to every run for no extra coverage.
+
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install the test dependencies
+        run: python -m pip install "numpy==1.26.4" librosa scipy soundfile pyyaml requests matplotlib pytest
+      - name: Install the package
+        run: python -m pip install -e .
+      - name: Run the tests
+        run: python -m pytest -q
