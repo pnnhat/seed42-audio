@@ -2,9 +2,9 @@ librosa
 numpy
 scipy
 soundfile
-essentia-tensorflow
 pyyaml
 requests
 laion-clap
 torch
 matplotlib
+pytest

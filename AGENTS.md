@@ -33,8 +33,11 @@ renderer. seed42 already owns the rendering pipeline.
   `essentia-tensorflow`, or defer Essentia and do the librosa work first. librosa,
   numpy, scipy, soundfile and pyyaml install everywhere.
 - Use the project virtual environment (`.venv`). Never commit `.venv`.
-- Never commit audio files, API keys, credentials, or anything seed42 shares in
-  confidence. See `.gitignore`.
+- Never commit audio files outside `data/`. The cleared evaluation tracks and the
+  synthetic clips in `data/` are the one exception, and every real track there
+  needs a row in `data/corpus_manifest.csv` recording its source and licence.
+  Never commit API keys, credentials or anything seed42 shares in confidence.
+  See `.gitignore`.
 
 **Workflow:**
 - Work on a feature branch, open a pull request into `main`, one review (Hatim, Quality
