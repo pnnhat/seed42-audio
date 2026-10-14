@@ -189,16 +189,12 @@ def test_silence_runs_without_error(silence):
     check(silence, runs, "extractors on silence")
 
 
-# --- Known open defect ---------------------------------------------------------
+# --- D-07, fixed in PR #23 ------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-07: bass_energy divides by zero on an empty spectrum, fix in PR #23",
-)
 def test_silence_spectral_has_no_nan(silence):
-    # strict=True means this flips to a failure the moment D-07 merges, which is
-    # the signal to delete the xfail marker and keep the test as a plain pass.
+    # Silence used to give NaN from a divide by zero in bass_energy. Kept as a
+    # plain test so the fix stays in place.
     def clean(samples):
         result = spectral.extract(samples, SR)
         return (not any(math.isnan(v) for v in result.values())
