@@ -2,8 +2,8 @@
 # correct tempo, key, mode or flatness is known in advance, plus an answer key.
 # Uses numpy and the standard library only, so it runs in either environment.
 #
-#   python generate_synth_audio.py            # writes into data/
-#   python generate_synth_audio.py some/dir   # writes somewhere else
+#   python scripts/generate_synth_audio.py            # writes into data/
+#   python scripts/generate_synth_audio.py some/dir   # writes somewhere else
 
 import csv
 import sys

@@ -1,5 +1,6 @@
-# Feeds audio in past-X-second segments only (causal). Never reads the whole
-# file at once.
+# Feeds audio in past-X-second segments only (causal). The file is decoded in
+# one go, but the rest of the code only ever receives the trailing window,
+# never later samples.
 
 import librosa
 
