@@ -17,10 +17,12 @@ def to_params(state) -> dict:
     # Consistency: inverse of energy, so calmer music holds frames steadier
     consistency = max(0.0, min(1.0 - state.energy, 1.0))
 
-    # Creativity: driven by arousal, scaled to the 0-19 t_index range, then inverted
-    creativity_intent = max(0, min(int(state.arousal * 19), 19))
+    # Creativity: driven by arousal. Arousal runs from -1 to 1, so rescale it to 0-1 first,
+    # then scale to the 0-19 t_index range, then invert
+    arousal_01 = (state.arousal + 1) / 2
+    creativity_intent = max(0, min(int(arousal_01 * 19), 19))
     t_index = 19 - creativity_intent
-
+    
     return {
         # controlnets is positional, so all three are sent every cycle even if only one value changed
         "controlnets": [
