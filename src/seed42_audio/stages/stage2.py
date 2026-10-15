@@ -1,17 +1,4 @@
-# Stage 2: CLAP retrieval for visual prompt generation.
-#
-# The Stage 2 interface is:
-#
-#     generate(state) -> {
-#         "prompt": "...",
-#         "negative_prompt": "..."
-#     }
-#
-# The phrase bank is embedded once when this module starts.
-# The current audio window in state.samples is embedded once per cycle.
-#
-# If CLAP is unavailable or the Stage 2 cycle exceeds the time budget,
-# Stage 1 is used as the fallback.
+"""Stage 2: CLAP retrieval for visual prompt generation."""
 
 import json
 import time
@@ -20,15 +7,14 @@ from pathlib import Path
 import numpy as np
 
 
-# Project paths and timing
+# Project paths and timing.
 PHRASE_BANK_PATH = (
     Path(__file__).resolve().parents[3] / "data" / "phrase_bank.json"
 )
 
 PIPELINE_SAMPLE_RATE = 22050
 CLAP_SAMPLE_RATE = 48000
-
-# Maximum time allowed for one Stage 2 cycle.
+CLAP_CHUNK_SECONDS = 10.0
 CYCLE_BUDGET_SECONDS = 5.0
 
 
@@ -39,16 +25,14 @@ _OPPOSITES = {}
 _PHRASE_EMBEDDINGS = {}
 _CLAP_READY = False
 
-
-# Normalise embeddings for cosine similarity.
 def _normalise(embeddings):
+    """Normalise embeddings for cosine similarity."""
     values = np.asarray(embeddings, dtype=np.float32)
 
     if values.ndim == 1:
         values = values.reshape(1, -1)
 
     norms = np.linalg.norm(values, axis=1, keepdims=True)
-
     return values / np.maximum(norms, 1e-12)
 
 
@@ -57,6 +41,7 @@ def _normalise(embeddings):
 # Each group is a list of [phrase, written opposite] pairs. Returns the flat
 # phrase list per group, and for each phrase the index of its written opposite.
 def _load_phrase_bank():
+    """Load the phrase bank from JSON."""
     with open(PHRASE_BANK_PATH, "r", encoding="utf-8") as file:
         phrase_bank = json.load(file)
 
@@ -84,8 +69,8 @@ def _load_phrase_bank():
     return phrases, opposites
 
 
-# Load CLAP and embed the phrase bank once at startup.
 def _initialise():
+    """Load CLAP and embed the phrase bank once at startup."""
     global _CLAP
     global _PHRASE_BANK
     global _OPPOSITES
@@ -98,7 +83,6 @@ def _initialise():
         # Load the phrase bank once.
         _PHRASE_BANK, _OPPOSITES = _load_phrase_bank()
 
-        # Load CLAP once.
         _CLAP = laion_clap.CLAP_Module(enable_fusion=False)
         _CLAP.load_ckpt()
 
@@ -135,15 +119,15 @@ def _initialise():
 _initialise()
 
 
-# Return the Stage 1 result unchanged.
 def _fallback(state):
+    """Return the Stage 1 result unchanged."""
     from seed42_audio.stages.stage1 import generate as stage1_generate
 
     return stage1_generate(state)
 
 
-# Convert the current audio window to mono 48 kHz audio.
 def _prepare_audio(samples):
+    """Convert the current audio window to mono 48 kHz audio."""
     import librosa
 
     audio = np.asarray(samples, dtype=np.float32)
@@ -171,6 +155,58 @@ def _prepare_audio(samples):
     return audio
 
 
+def _embed_audio_window(audio, started):
+    """Embed the audio window as 10-second CLAP chunks and average them."""
+    chunk_samples = int(CLAP_SAMPLE_RATE * CLAP_CHUNK_SECONDS)
+
+    if chunk_samples <= 0:
+        raise ValueError("Invalid CLAP chunk size.")
+
+    chunk_embeddings = []
+    min_chunk_samples = int(CLAP_SAMPLE_RATE * 1.0)
+
+    for start in range(0, len(audio), chunk_samples):
+        chunk = audio[start:start + chunk_samples]
+
+        # Skip chunks shorter than one second.
+        if chunk.size < min_chunk_samples:
+            continue
+
+        # Pad the final valid chunk to 10 seconds.
+        if len(chunk) < chunk_samples:
+            padded = np.zeros(chunk_samples, dtype=np.float32)
+            padded[:len(chunk)] = chunk
+            chunk = padded
+
+        audio_input = chunk.reshape(1, -1)
+
+        embedding = _CLAP.get_audio_embedding_from_data(
+            x=audio_input,
+            use_tensor=False,
+        )
+
+        embedding = _normalise(embedding)[0]
+        chunk_embeddings.append(embedding)
+
+        elapsed = time.perf_counter() - started
+
+        if elapsed > CYCLE_BUDGET_SECONDS:
+            raise TimeoutError(
+                f"Stage 2 cycle budget exceeded ({elapsed:.2f}s)"
+            )
+
+    if not chunk_embeddings:
+        raise ValueError("No audio chunks were embedded.")
+
+    # Average the normalised chunk embeddings to represent the full window.
+    window_embedding = np.mean(
+        np.stack(chunk_embeddings, axis=0),
+        axis=0,
+    )
+
+    return _normalise(window_embedding)[0]
+
+
 # Retrieve the closest phrase from each group.
 #
 # The closest phrase becomes part of the positive prompt.
@@ -178,19 +214,19 @@ def _prepare_audio(samples):
 # prompt (D-04). The least-similar phrase was used before, but it was the
 # written opposite in only 78 of 400 group choices on 30 September.
 def _retrieve_phrases(audio_embedding):
+    """Retrieve the closest phrase and its explicit contrast per group."""
     audio_embedding = _normalise(audio_embedding)[0]
 
     positive = {}
     negative = {}
 
     for group, phrase_embeddings in _PHRASE_EMBEDDINGS.items():
-        phrases = _PHRASE_BANK[group]
+        phrases = _PHRASE_BANK.get(group, [])
 
         if not phrases:
             continue
 
         similarities = phrase_embeddings @ audio_embedding
-
         closest_index = int(np.argmax(similarities))
         opposite_index = _OPPOSITES[group][closest_index]
 
@@ -200,9 +236,14 @@ def _retrieve_phrases(audio_embedding):
     return positive, negative
 
 
-# Assemble retrieved phrases into one comma-separated prompt.
 def _assemble_prompt(phrases):
-    groups = ("subject", "motion", "lighting", "atmosphere")
+    """Assemble retrieved phrases into one comma-separated prompt."""
+    groups = (
+        "subject",
+        "motion",
+        "lighting",
+        "atmosphere",
+    )
 
     return ", ".join(
         phrases[group]
@@ -211,8 +252,8 @@ def _assemble_prompt(phrases):
     )
 
 
-# Generate prompt and negative prompt from the current audio window.
 def generate(state) -> dict:
+    """Generate prompt and negative prompt from the current audio window."""
     # Fall back immediately if CLAP was not available at startup.
     if not _CLAP_READY or _CLAP is None:
         return _fallback(state)
@@ -229,13 +270,10 @@ def generate(state) -> dict:
         # Prepare the current audio window.
         audio = _prepare_audio(samples)
 
-        # CLAP expects audio as a batch.
-        audio_input = audio.reshape(1, -1)
-
-        # Embed the current audio window once for this cycle.
-        audio_embedding = _CLAP.get_audio_embedding_from_data(
-            x=audio_input,
-            use_tensor=False,
+        # Embed the full window as 10-second chunks.
+        audio_embedding = _embed_audio_window(
+            audio,
+            started,
         )
 
         # Check the cycle budget after audio embedding.
@@ -272,6 +310,10 @@ def generate(state) -> dict:
             "prompt": prompt,
             "negative_prompt": negative_prompt,
         }
+
+    except TimeoutError as error:
+        print(f"[stage2] {error}; using Stage 1")
+        return _fallback(state)
 
     except Exception as error:
         print(f"[stage2] retrieval failed: {error}")

@@ -24,7 +24,7 @@ def extract(samples, sr) -> dict:
         bass_energy = 0.0
     else:
         bass_energy = float(np.sum(stft[bass_mask]) / total)
-    
+
     return {
         "brightness": brightness,
         "energy": loudness,
