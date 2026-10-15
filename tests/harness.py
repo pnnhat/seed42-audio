@@ -24,7 +24,7 @@ MOCK = ROOT / "scripts" / "mock-control-api.py"
 PORT = 8787
 SONG = "data/bright_energetic_3.mp3"
 WINDOW, HOP, EMIT_EVERY = 30.0, 1.0, 10.0
-STAGE = 1  # placeholder until Stage selection lands in orchestrate.py
+STAGE = 1  # Stage 1 keeps every mode fast and free of CLAP and Ollama
 CREDENTIALS = {"SEED42_EMAIL": "harness@test.local", "SEED42_PASSWORD": "harness"}
 
 # Mock flags per mode. The not-ready window is stretched to 20 s so the first
@@ -78,7 +78,8 @@ def run_mode(name):
                 raise RuntimeError("mock did not start on port %d" % PORT)
             code = (
                 "from seed42_audio.orchestrate import run_dev; "
-                f"run_dev({songs!r}, window={WINDOW}, hop={HOP}, emit_every={EMIT_EVERY})"
+                f"run_dev({songs!r}, stage={STAGE}, window={WINDOW}, hop={HOP}, "
+                f"emit_every={EMIT_EVERY})"
             )
             started = time.monotonic()
             pipeline = subprocess.run(
