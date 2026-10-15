@@ -25,17 +25,6 @@ _OPPOSITES = {}
 _PHRASE_EMBEDDINGS = {}
 _CLAP_READY = False
 
-
-# Explicit semantic contrast pairs for the current phrase bank.
-# Each pair contains phrases that can act as visual opposites.
-_CONTRAST_PAIRS = {
-    "subject": [(0, 1), (2, 3), (4, 5), (6, 7), (8, 9)],
-    "motion": [(0, 1), (2, 3), (4, 5), (6, 7), (8, 9)],
-    "lighting": [(0, 1), (2, 3), (4, 5), (6, 7), (8, 9)],
-    "atmosphere": [(0, 1), (2, 3), (4, 5), (6, 7), (8, 9)],
-}
-
-
 def _normalise(embeddings):
     """Normalise embeddings for cosine similarity."""
     values = np.asarray(embeddings, dtype=np.float32)
