@@ -174,14 +174,16 @@ def _embed_audio_window(audio, started):
         raise ValueError("Invalid CLAP chunk size.")
 
     chunk_embeddings = []
+    min_chunk_samples = int(CLAP_SAMPLE_RATE * 1.0)
 
     for start in range(0, len(audio), chunk_samples):
         chunk = audio[start:start + chunk_samples]
 
-        if chunk.size == 0:
+        # Skip chunks shorter than one second.
+        if chunk.size < min_chunk_samples:
             continue
 
-        # Pad the final chunk so every CLAP input represents 10 seconds.
+        # Pad the final valid chunk to 10 seconds.
         if len(chunk) < chunk_samples:
             padded = np.zeros(chunk_samples, dtype=np.float32)
             padded[:len(chunk)] = chunk
