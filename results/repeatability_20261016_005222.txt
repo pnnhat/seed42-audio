@@ -1,0 +1,36 @@
+STAGE 2 REPEATABILITY AND PERFORMANCE CHECK
+Generated: 2026-10-16T00:52:34
+Python: 3.11.5
+PyTorch: 2.14.0
+CUDA available: False
+Apple MPS available: True
+
+REPEATED-WINDOW TEST
+Window: bright_calm_1.mp3 at 30.0s
+Identical prompt across five repeated calls: True
+Distinct prompts across those five calls: 1
+Repeated-call statuses: ['ok', 'ok', 'ok', 'ok', 'ok']
+Prompt: jagged crystalline structures, trembling micro vibrations, deep contrast and hard edges, calm and meditative mood
+Negative prompt: soft billowing clouds of colour, spiralling outward sweeps, dim muted twilight, aggressive and chaotic energy
+
+REAL-TRACK WINDOW RESULTS
+Real clips: 8
+Windows processed: 52
+Successful own prompts: 52
+Fallbacks: 0
+Errors: 0
+Distinct successful prompts: 16 of 52
+Median latency: 0.184s
+Maximum latency: 0.292s
+Stage 2 atmosphere arousal: 52/52 = 100% (0 ambiguous excluded)
+
+PHASE B BASELINE (previously scored with the same evaluation script)
+Distinct Stage 2 prompts: 25 of 52
+Stage 2 atmosphere arousal: 44 of 50 = 88% (2 ambiguous excluded)
+Stage 2 median latency: 0.188s
+Stage 2 maximum latency: 0.249s
+
+CPU NOTE
+CUDA/MPS availability reports hardware capability, not the device
+actually selected by CLAP. Confirm the CLAP device from its startup log;
+do not claim CPU-only execution from these flags alone.
